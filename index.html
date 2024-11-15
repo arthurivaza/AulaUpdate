@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atualização de Cliente</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Atualizar Informações do Cliente</h1>
+    
+    <form id="updateForm">
+        <label for="idCliente">ID do Cliente:</label>
+        <input type="number" id="idCliente" name="idCliente" required>
+
+        <label for="novoNome">Novo Nome:</label>
+        <input type="text" id="novoNome" name="novoNome" required>
+
+        <label for="novoLimite">Novo Limite:</label>
+        <input type="number" id="novoLimite" name="novoLimite" required>
+
+        <button type="submit">Iniciar Atualização</button>
+    </form>
+
+    <h2>Resposta do Servidor:</h2>
+    <div id="response"></div>
+
+    <div id="confirmationButtons" style="display: none;">
+        <button id="confirmButton">Confirmar Atualização</button>
+        <button id="cancelButton">Cancelar Atualização</button>
+    </div>
+
+    <h2>Clientes</h2>
+    <button id="refreshButton">Atualizar Lista de Clientes</button>
+    <table id="clientesTable" border="1">
+        <thead>
+            <tr>
+                <th>ID do Cliente</th>
+                <th>Nome</th>
+                <th>Limite</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        let currentClientId = null;
+
+        async function carregarClientes() {
+            document.getElementById("response").innerText = ""; 
+            try {
+                console.log('Carregando lista de clientes...');
+                const response = await fetch('http://localhost:3000/api/clientes');
+                
+                if (!response.ok) throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                
+                const clientes = await response.json();
+                console.log('Clientes recebidos:', clientes);
+                
+                const tbody = document.getElementById('clientesTable').querySelector('tbody');
+                tbody.innerHTML = '';
+
+                clientes.forEach(cliente => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${cliente.id}</td>
+                        <td>${cliente.nome}</td>
+                        <td>${cliente.limite}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Erro ao carregar clientes:', error);
+                document.getElementById("response").innerText = `Erro ao carregar clientes: ${error.message}`;
+            }
+        }
+
+        window.onload = carregarClientes;
+
+        document.getElementById("refreshButton").addEventListener("click", carregarClientes);
+
+        document.getElementById("updateForm").addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            currentClientId = document.getElementById("idCliente").value;
+            const novoNome = document.getElementById("novoNome").value;
+            const novoLimite = document.getElementById("novoLimite").value;
+            const responseDiv = document.getElementById("response");
+            responseDiv.innerText = ""; 
+
+            try {
+                const response = await fetch(`http://localhost:3000/api/iniciar-atualizacao/${currentClientId}`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ novoLimite: parseFloat(novoLimite), novoNome: novoNome })
+                });
+
+                const data = await response.text();
+
+                if (response.ok) {
+                    responseDiv.innerText = `${data}`;
+
+                    document.getElementById("confirmationButtons").style.display = "block";
+                } else {
+                    responseDiv.innerText = `Erro: ${data}`;
+                    currentClientId = null;
+                }
+            } catch (error) {
+                responseDiv.innerText = `Erro: ${error.message}`;
+                currentClientId = null;
+            }
+        });
+
+        document.getElementById("confirmButton").addEventListener("click", async () => {
+            const responseDiv = document.getElementById("response");
+
+            try {
+                const response = await fetch(`http://localhost:3000/api/confirmar-atualizacao/${currentClientId}`, {
+                    method: "POST"
+                });
+
+                const data = await response.text();
+
+                if (response.ok) {
+                    responseDiv.innerText = `Sucesso: ${data}`;
+                    carregarClientes();
+                } else {
+                    responseDiv.innerText = `Erro: ${data}`;
+                }
+            } catch (error) {
+                responseDiv.innerText = `Erro: ${error.message}`;
+            } finally {
+                document.getElementById("confirmationButtons").style.display = "none";
+                currentClientId = null;
+            }
+        });
+
+        document.getElementById("cancelButton").addEventListener("click", async () => {
+            const responseDiv = document.getElementById("response");
+
+            try {
+                const response = await fetch(`http://localhost:3000/api/cancelar-atualizacao/${currentClientId}`, {
+                    method: "POST"
+                });
+
+                const data = await response.text();
+
+                if (response.ok) {
+                    responseDiv.innerText = `Sucesso: ${data}`;
+                } else {
+                    responseDiv.innerText = `Erro: ${data}`;
+                }
+            } catch (error) {
+                responseDiv.innerText = `Erro: ${error.message}`;
+            } finally {
+              
+                document.getElementById("confirmationButtons").style.display = "none";
+                currentClientId = null;
+            }
+        });
+    </script>
+</body>
+</html>
